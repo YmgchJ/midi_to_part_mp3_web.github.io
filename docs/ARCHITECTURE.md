@@ -22,6 +22,7 @@ src/
 │   ├── types.ts                 # 全型定義
 │   ├── constants.ts             # 定数・デフォルト値・楽器マッピング
 │   ├── midi-parser.ts           # MIDI解析 → ParsedMidi変換
+│   ├── part-assignment.ts       # 合唱種別に応じたパート自動割り当て・採番
 │   ├── audio-renderer.ts        # Tone.Offline + Sampler 音声合成
 │   ├── mp3-encoding-core.ts     # PCM→MP3変換ロジック（Worker非依存）
 │   └── mp3-encoder.ts           # Web Worker通信ラッパー
@@ -114,6 +115,12 @@ export interface ParsedMidi {
 /** パート種別 */
 export type PartRole = 'Soprano' | 'Alto' | 'Tenor' | 'Bass' | 'Piano' | 'Excluded';
 
+/** 声部（伴奏・除外を除いたロール） */
+export type VoiceRole = Exclude<PartRole, 'Piano' | 'Excluded'>;
+
+/** 合唱編成の種別 */
+export type ChoirType = 'mixed' | 'men' | 'women';
+
 /** 楽器選択肢 */
 export type InstrumentChoice = 'clarinet' | 'piano' | 'woodblock';
 
@@ -121,6 +128,7 @@ export type InstrumentChoice = 'clarinet' | 'piano' | 'woodblock';
 export interface TrackConfig {
   trackId: number;
   role: PartRole;
+  partName: string;   // 出力・グルーピング単位の名前（例 "Bass1"）。Excludedは空文字
   instrument: InstrumentChoice;
 }
 
@@ -152,13 +160,26 @@ export interface GeneratedPart {
 /** アプリケーション全体の状態 */
 export interface AppState {
   parsedMidi: ParsedMidi | null;
-  trackConfigs: TrackConfig[];
-  partNames: Record<'Soprano' | 'Alto' | 'Tenor' | 'Bass' | 'Piano', string>;
+  choirType: ChoirType;          // 自動割り当ての基準（混声/女声/男声）
+  trackConfigs: TrackConfig[];   // パート名は各TrackConfig.partNameで持つ
   backgroundVolumePercent: number;
   progress: ProgressState;
   generatedParts: GeneratedPart[];
 }
 ```
+
+## パート自動割り当て（core/part-assignment.ts）
+
+合唱種別に応じてトラックへロール・パート名を自動割り当てする純粋ロジック。
+
+- 種別ごとの声部セット（高音→低音）: 混声=S/A/T/B、女声=S/A、男声=T/B
+- 分類: ノート無し・パーカッション→除外、ピアノ/伴奏→Piano、残りを声部候補に
+- 配分: 声部トラックを平均ピッチ降順に並べ、トラック名で全て声部判別できればそれを尊重、
+  できなければ声部数のバケットへ上（高音）優先で均等配分
+- 採番: 同一声部に複数トラックがあれば上から `1,2,3…`（`Bass1`, `Bass2`）。単独なら番号なし
+- `renumberByRole()`: 手動でロールを変えた後、既存ロールを尊重したままパート名だけ再採番
+
+出力（ZIP内のMP3）は `TrackConfig.partName` でグルーピングされ、同名トラックは1つにまとまる。
 
 ## データフロー図
 

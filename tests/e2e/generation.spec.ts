@@ -3,33 +3,59 @@ import midiPkg from '@tonejs/midi';
 
 const { Midi } = midiPkg;
 
-function createDemoMidiBuffer(): Buffer {
-  const midi = new Midi();
+function addNamedTrack(midi: InstanceType<typeof Midi>, name: string, midiNote: number): void {
   const track = midi.addTrack();
-  track.name = 'Soprano';
-  track.addNote({
-    midi: 60,
-    time: 0,
-    duration: 0.5,
-    velocity: 0.8,
-  });
+  track.name = name;
+  track.addNote({ midi: midiNote, time: 0, duration: 0.5, velocity: 0.8 });
+}
+
+/** Soprano + 分割された2つのBass を含むデモMIDI（採番の検証用） */
+function createDivisiMidiBuffer(): Buffer {
+  const midi = new Midi();
+  addNamedTrack(midi, 'Soprano', 72);
+  addNamedTrack(midi, 'Bass', 48);
+  addNamedTrack(midi, 'Bass', 43);
   return Buffer.from(midi.toArray());
 }
 
-test('generation smoke: upload -> generate -> complete', async ({ page }) => {
+test('generation smoke: upload -> auto-assign -> generate -> complete', async ({ page }) => {
   test.setTimeout(180000);
   await page.goto('/');
   await page.setInputFiles('input[type="file"]', {
     name: 'demo.mid',
     mimeType: 'audio/midi',
-    buffer: createDemoMidiBuffer(),
+    buffer: createDivisiMidiBuffer(),
   });
 
   await expect(page.locator('#step-config')).toBeVisible();
-  await expect(page.locator('#generate-btn')).toBeEnabled();
 
+  // 混声がデフォルトで、2つのBassは上から Bass1 / Bass2 に採番される
+  const partNames = page.locator('.js-part-name-input');
+  await expect(partNames).toHaveCount(3);
+  await expect(partNames.nth(0)).toHaveValue('Soprano');
+  await expect(partNames.nth(1)).toHaveValue('Bass1');
+  await expect(partNames.nth(2)).toHaveValue('Bass2');
+
+  await expect(page.locator('#generate-btn')).toBeEnabled();
   await page.click('#generate-btn');
   await expect(page.locator('#generate-btn')).toHaveText('📥 ZIPを再ダウンロード', {
     timeout: 120000,
   });
+});
+
+test('changing choir type reassigns parts', async ({ page }) => {
+  await page.goto('/');
+  await page.setInputFiles('input[type="file"]', {
+    name: 'demo.mid',
+    mimeType: 'audio/midi',
+    buffer: createDivisiMidiBuffer(),
+  });
+
+  await expect(page.locator('#step-config')).toBeVisible();
+  // 男声へ切り替えると Soprano は Tenor/Bass 側へ再割り当てされる
+  await page.selectOption('.js-choir-type-select', 'men');
+  const roles = page.locator('.js-role-select');
+  for (let i = 0; i < 3; i++) {
+    await expect(roles.nth(i)).not.toHaveValue('Soprano');
+  }
 });

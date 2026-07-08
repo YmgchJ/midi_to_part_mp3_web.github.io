@@ -118,12 +118,12 @@ describe('renderPartAudio', () => {
   it('renders target and background tracks with proper gain and note scheduling', async () => {
     const parsedMidi = makeParsedMidi();
     const trackConfigs: TrackConfig[] = [
-      { trackId: 0, role: 'Soprano', instrument: 'clarinet' },
-      { trackId: 1, role: 'Alto', instrument: 'piano' },
-      { trackId: 2, role: 'Excluded', instrument: 'woodblock' },
+      { trackId: 0, role: 'Soprano', partName: 'Soprano', instrument: 'clarinet' },
+      { trackId: 1, role: 'Alto', partName: 'Alto', instrument: 'piano' },
+      { trackId: 2, role: 'Excluded', partName: '', instrument: 'woodblock' },
     ];
 
-    const result = await renderPartAudio(parsedMidi, trackConfigs, 'Soprano', 30, 48000);
+    const result = await renderPartAudio(parsedMidi, trackConfigs, [0], 30, 48000);
 
     expect(result).toBe(toneMockState.returnBuffer);
     expect(toneMockState.offlineArgs).toEqual({
@@ -144,12 +144,12 @@ describe('renderPartAudio', () => {
   it('ignores tracks without config and continues when sampler rejects out-of-range notes', async () => {
     const parsedMidi = makeParsedMidi();
     const trackConfigs: TrackConfig[] = [
-      { trackId: 0, role: 'Soprano', instrument: 'clarinet' },
+      { trackId: 0, role: 'Soprano', partName: 'Soprano', instrument: 'clarinet' },
     ];
     toneMockState.throwOnNoteName = 'C4';
 
     await expect(
-      renderPartAudio(parsedMidi, trackConfigs, 'Soprano', 50)
+      renderPartAudio(parsedMidi, trackConfigs, [0], 50)
     ).resolves.toBe(toneMockState.returnBuffer);
 
     expect(toneMockState.gainValues).toEqual([1.0]);

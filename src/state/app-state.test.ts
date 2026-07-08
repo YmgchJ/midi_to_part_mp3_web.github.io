@@ -6,9 +6,10 @@ import {
   createInitialAppState,
   resetGeneration,
   setBackgroundVolume,
-  setPartName,
+  setChoirType,
   setParsedMidi,
   setProgress,
+  setTrackPartName,
   updateTrackConfig,
 } from './app-state.ts';
 
@@ -52,7 +53,7 @@ describe('app-state', () => {
     expect(state.parsedMidi).toBeNull();
     expect(state.trackConfigs).toEqual([]);
     expect(state.backgroundVolumePercent).toBe(50);
-    expect(state.partNames.Soprano).toBe('Soprano');
+    expect(state.choirType).toBe('mixed');
     expect(state.progress.phase).toBe('idle');
     expect(state.generatedParts).toEqual([]);
   });
@@ -62,9 +63,9 @@ describe('app-state', () => {
     const configs = createDefaultTrackConfigs(parsedMidi);
 
     expect(configs).toEqual([
-      { trackId: 0, role: 'Soprano', instrument: 'clarinet' },
-      { trackId: 1, role: 'Piano', instrument: 'piano' },
-      { trackId: 2, role: 'Excluded', instrument: 'woodblock' },
+      { trackId: 0, role: 'Soprano', partName: 'Soprano', instrument: 'clarinet' },
+      { trackId: 1, role: 'Piano', partName: 'Piano', instrument: 'piano' },
+      { trackId: 2, role: 'Excluded', partName: '', instrument: 'woodblock' },
     ]);
   });
 
@@ -86,10 +87,19 @@ describe('app-state', () => {
 
   it('updates one track config immutably', () => {
     const initial = setParsedMidi(createInitialAppState(), makeParsedMidi());
-    const next = updateTrackConfig(initial, 0, { role: 'Alto', instrument: 'piano' });
+    const next = updateTrackConfig(initial, 0, { instrument: 'piano' });
 
-    expect(next.trackConfigs[0]).toEqual({ trackId: 0, role: 'Alto', instrument: 'piano' });
+    expect(next.trackConfigs[0]).toEqual({ trackId: 0, role: 'Soprano', partName: 'Soprano', instrument: 'piano' });
     expect(next.trackConfigs[1]).toEqual(initial.trackConfigs[1]);
+  });
+
+  it('renumbers part names within a role after a manual role change', () => {
+    const initial = setParsedMidi(createInitialAppState(), makeParsedMidi());
+    // move the Piano track (id 1) into the Soprano role -> two sopranos -> numbered
+    const next = updateTrackConfig(initial, 1, { role: 'Soprano' });
+
+    const soprano = next.trackConfigs.filter((c) => c.role === 'Soprano');
+    expect(soprano.map((c) => c.partName).sort()).toEqual(['Soprano1', 'Soprano2']);
   });
 
   it('clamps background volume to 0-100', () => {
@@ -101,13 +111,25 @@ describe('app-state', () => {
     expect(low.backgroundVolumePercent).toBe(0);
   });
 
-  it('updates custom part display names', () => {
-    const initial = createInitialAppState();
-    const renamed = setPartName(initial, 'Tenor', 'Tenor (Guide)');
-    const fallback = setPartName(renamed, 'Tenor', '   ');
+  it('updates a single track part name and falls back to the role when cleared', () => {
+    const initial = setParsedMidi(createInitialAppState(), makeParsedMidi());
+    const renamed = setTrackPartName(initial, 0, 'ソプラノ（主旋律）');
+    const fallback = setTrackPartName(renamed, 0, '   ');
 
-    expect(renamed.partNames.Tenor).toBe('Tenor (Guide)');
-    expect(fallback.partNames.Tenor).toBe('Tenor');
+    expect(renamed.trackConfigs[0].partName).toBe('ソプラノ（主旋律）');
+    expect(fallback.trackConfigs[0].partName).toBe('Soprano');
+  });
+
+  it('reassigns tracks when the choir type changes', () => {
+    const initial = setParsedMidi(createInitialAppState(), makeParsedMidi());
+    const men = setChoirType(initial, 'men');
+
+    expect(men.choirType).toBe('men');
+    // the single soprano-named voice track gets redistributed into a men's voice
+    const voiceRoles = men.trackConfigs
+      .filter((c) => c.role !== 'Excluded' && c.role !== 'Piano')
+      .map((c) => c.role);
+    expect(voiceRoles.every((r) => r === 'Tenor' || r === 'Bass')).toBe(true);
   });
 
   it('updates progress and manages generated parts', () => {

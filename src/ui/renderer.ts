@@ -1,9 +1,15 @@
-import { INSTRUMENT_LABELS, PART_COLORS } from '../core/constants.ts';
+import { CHOIR_TYPES, CHOIR_TYPE_LABELS, INSTRUMENT_LABELS, PART_COLORS } from '../core/constants.ts';
 import type { AppState, PartRole } from '../core/types.ts';
 import { renderProgressDisplay } from './components/progress-display.ts';
 
-function roleLabel(role: PartRole): string {
-  return role === 'Excluded' ? '除外' : role;
+/** innerHTML / 属性値へ差し込む前にHTML特殊文字をエスケープする */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function roleColor(role: PartRole): string {
@@ -11,29 +17,16 @@ function roleColor(role: PartRole): string {
   return PART_COLORS[role];
 }
 
-function renderPartNameInputs(state: AppState): string {
-  const roles = Array.from(new Set(
-    state.trackConfigs
-      .filter((config): config is typeof config & { role: Exclude<PartRole, 'Excluded'> } => config.role !== 'Excluded')
-      .map((config) => config.role)
-  ));
-  if (roles.length === 0) return '';
-
-  const rows = roles.map((role) => `
-    <label class="part-name-field">
-      <span class="part-name-field__label">${role} 名</span>
-      <input
-        type="text"
-        class="part-name-input js-part-name-input"
-        data-role="${role}"
-        value="${state.partNames[role]}"
-      />
-    </label>
+function renderChoirTypeSelector(state: AppState): string {
+  const options = CHOIR_TYPES.map((type) => `
+    <option value="${type}" ${state.choirType === type ? 'selected' : ''}>${CHOIR_TYPE_LABELS[type]}</option>
   `).join('');
   return `
-    <section class="part-name-grid" aria-label="パート名カスタマイズ">
-      ${rows}
-    </section>
+    <div class="choir-type">
+      <label class="choir-type__label" for="choir-type-select">合唱編成</label>
+      <select class="select js-choir-type-select" id="choir-type-select">${options}</select>
+      <span class="choir-type__hint">編成を選ぶとパートを自動で割り当てます</span>
+    </div>
   `;
 }
 
@@ -114,12 +107,22 @@ export function renderTrackConfigTable(state: AppState): string {
     if (!config) return '';
 
     const noteCount = track.notes.length;
+    const isExcluded = config.role === 'Excluded';
+    const partNameCell = isExcluded
+      ? '<span class="track-name__notes">—</span>'
+      : `<input
+            type="text"
+            class="part-name-input js-part-name-input"
+            data-track-id="${track.id}"
+            value="${escapeHtml(config.partName)}"
+            aria-label="${escapeHtml(track.name)} のパート名"
+          />`;
     return `
       <tr>
         <td data-label="Track">
           <div class="track-name">
             <span class="track-name__dot" style="background:${roleColor(config.role)}"></span>
-            <span class="track-name__label">${track.name}</span>
+            <span class="track-name__label">${escapeHtml(track.name)}</span>
             <span class="track-name__notes">(${noteCount} notes)</span>
           </div>
         </td>
@@ -132,6 +135,9 @@ export function renderTrackConfigTable(state: AppState): string {
             <option value="Piano" ${config.role === 'Piano' ? 'selected' : ''}>Piano</option>
             <option value="Excluded" ${config.role === 'Excluded' ? 'selected' : ''}>除外</option>
           </select>
+        </td>
+        <td data-label="パート名">
+          ${partNameCell}
         </td>
         <td data-label="Instrument">
           <select class="select js-instrument-select" data-track-id="${track.id}">
@@ -150,6 +156,7 @@ export function renderTrackConfigTable(state: AppState): string {
         <tr>
           <th scope="col">Track</th>
           <th scope="col">Part</th>
+          <th scope="col">パート名</th>
           <th scope="col">Instrument</th>
         </tr>
       </thead>
@@ -158,40 +165,23 @@ export function renderTrackConfigTable(state: AppState): string {
   `;
 }
 
-export function renderAppState(state: AppState): void {
-  const stepConfig = document.querySelector<HTMLElement>('#step-config');
-  const stepGenerate = document.querySelector<HTMLElement>('#step-generate');
-  const trackConfigContainer = document.querySelector<HTMLDivElement>('#track-config-container');
-  const volumeSlider = document.querySelector<HTMLInputElement>('#volume-slider');
-  const volumeValue = document.querySelector<HTMLSpanElement>('#volume-value');
+/**
+ * 生成ボタンと進捗表示だけを更新する。
+ * トラック表のDOMには触れないため、パート名入力中でもフォーカスを失わない。
+ */
+export function renderControls(state: AppState): void {
   const generateBtn = document.querySelector<HTMLButtonElement>('#generate-btn');
-
-  if (!stepConfig || !stepGenerate || !trackConfigContainer || !volumeSlider || !volumeValue || !generateBtn) {
-    return;
-  }
-
-  const hasMidi = state.parsedMidi !== null;
-  stepConfig.classList.toggle('hidden', !hasMidi);
-  stepGenerate.classList.toggle('hidden', !hasMidi);
-  stepConfig.setAttribute('aria-hidden', String(!hasMidi));
-  stepGenerate.setAttribute('aria-hidden', String(!hasMidi));
-
-  if (hasMidi) {
-    trackConfigContainer.innerHTML = renderTrackConfigTable(state);
-    trackConfigContainer.insertAdjacentHTML('beforeend', renderPartNameInputs(state));
-    volumeSlider.value = String(state.backgroundVolumePercent);
-    volumeValue.textContent = `${state.backgroundVolumePercent}%`;
-
-    const activeRoleCount = new Set(
+  if (generateBtn) {
+    const activePartCount = new Set(
       state.trackConfigs
         .filter((config) => config.role !== 'Excluded')
-        .map((config) => roleLabel(config.role))
+        .map((config) => config.partName || String(config.role))
     ).size;
     const isBusy = state.progress.phase === 'rendering'
       || state.progress.phase === 'encoding'
       || state.progress.phase === 'zipping';
     const isDone = state.progress.phase === 'done';
-    generateBtn.disabled = activeRoleCount === 0 || isBusy;
+    generateBtn.disabled = activePartCount === 0 || isBusy;
     generateBtn.setAttribute('aria-busy', String(isBusy));
     generateBtn.classList.remove('btn--primary', 'btn--success');
     if (isBusy) {
@@ -207,6 +197,32 @@ export function renderAppState(state: AppState): void {
   }
 
   renderProgressDisplay(state.progress);
+}
+
+export function renderAppState(state: AppState): void {
+  const stepConfig = document.querySelector<HTMLElement>('#step-config');
+  const stepGenerate = document.querySelector<HTMLElement>('#step-generate');
+  const trackConfigContainer = document.querySelector<HTMLDivElement>('#track-config-container');
+  const volumeSlider = document.querySelector<HTMLInputElement>('#volume-slider');
+  const volumeValue = document.querySelector<HTMLSpanElement>('#volume-value');
+
+  if (!stepConfig || !stepGenerate || !trackConfigContainer || !volumeSlider || !volumeValue) {
+    return;
+  }
+
+  const hasMidi = state.parsedMidi !== null;
+  stepConfig.classList.toggle('hidden', !hasMidi);
+  stepGenerate.classList.toggle('hidden', !hasMidi);
+  stepConfig.setAttribute('aria-hidden', String(!hasMidi));
+  stepGenerate.setAttribute('aria-hidden', String(!hasMidi));
+
+  if (hasMidi) {
+    trackConfigContainer.innerHTML = renderChoirTypeSelector(state) + renderTrackConfigTable(state);
+    volumeSlider.value = String(state.backgroundVolumePercent);
+    volumeValue.textContent = `${state.backgroundVolumePercent}%`;
+  }
+
+  renderControls(state);
 }
 
 export function setUploadStatus(message: string, isError = false): void {

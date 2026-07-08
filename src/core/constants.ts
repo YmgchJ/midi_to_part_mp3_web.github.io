@@ -2,12 +2,37 @@
  * core/constants.ts — 定数・デフォルト値・楽器マッピング
  */
 
-import type { PartRole, InstrumentChoice, ProgressState } from './types.ts';
+import type { PartRole, VoiceRole, ChoirType, InstrumentChoice, ProgressState } from './types.ts';
 
 // === デフォルト値 ===
 
 /** 主役以外のパート音量デフォルト (%) */
 export const DEFAULT_BACKGROUND_VOLUME = 50;
+
+// === 合唱編成 ===
+
+/** デフォルトの合唱種別 */
+export const DEFAULT_CHOIR_TYPE: ChoirType = 'mixed';
+
+/** 合唱種別の並び順（UIセレクトのoptions） */
+export const CHOIR_TYPES: readonly ChoirType[] = ['mixed', 'women', 'men'] as const;
+
+/** 合唱種別の日本語ラベル */
+export const CHOIR_TYPE_LABELS: Record<ChoirType, string> = {
+  mixed: '混声',
+  women: '女声',
+  men: '男声',
+};
+
+/**
+ * 合唱種別ごとの声部セット（高音→低音の順）。
+ * この順にトラックを配分し、同一声部が複数あれば上から採番する。
+ */
+export const CHOIR_VOICES: Record<ChoirType, readonly VoiceRole[]> = {
+  mixed: ['Soprano', 'Alto', 'Tenor', 'Bass'],
+  women: ['Soprano', 'Alto'],
+  men: ['Tenor', 'Bass'],
+};
 
 /** MP3ビットレート (kbps) */
 export const DEFAULT_MP3_BITRATE = 128;

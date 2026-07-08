@@ -1,9 +1,10 @@
-import type { InstrumentChoice, PartRole } from '../../core/types.ts';
+import type { ChoirType, InstrumentChoice, PartRole } from '../../core/types.ts';
 
 interface TrackConfigChangeHandlers {
   onRoleChange: (trackId: number, role: PartRole) => void;
   onInstrumentChange: (trackId: number, instrument: InstrumentChoice) => void;
-  onPartNameChange: (role: Exclude<PartRole, 'Excluded'>, name: string) => void;
+  onPartNameChange: (trackId: number, name: string) => void;
+  onChoirTypeChange: (choirType: ChoirType) => void;
 }
 
 function parseTrackId(element: HTMLElement): number | null {
@@ -21,6 +22,11 @@ export function bindTrackConfigHandlers(
     const target = event.target;
     if (!(target instanceof HTMLSelectElement)) return;
 
+    if (target.classList.contains('js-choir-type-select')) {
+      handlers.onChoirTypeChange(target.value as ChoirType);
+      return;
+    }
+
     const trackId = parseTrackId(target);
     if (trackId === null) return;
 
@@ -37,8 +43,8 @@ export function bindTrackConfigHandlers(
     const target = event.target;
     if (!(target instanceof HTMLInputElement)) return;
     if (!target.classList.contains('js-part-name-input')) return;
-    const role = target.dataset.role as Exclude<PartRole, 'Excluded'> | undefined;
-    if (!role) return;
-    handlers.onPartNameChange(role, target.value);
+    const trackId = parseTrackId(target);
+    if (trackId === null) return;
+    handlers.onPartNameChange(trackId, target.value);
   });
 }

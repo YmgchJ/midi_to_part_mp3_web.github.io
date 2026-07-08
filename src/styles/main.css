@@ -307,6 +307,32 @@ body {
   color: var(--color-text-secondary);
 }
 
+/* === Choir Type === */
+
+.choir-type {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.choir-type__label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.choir-type .select {
+  min-width: 8rem;
+}
+
+.choir-type__hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
 /* === Volume Slider === */
 
 .volume-control {

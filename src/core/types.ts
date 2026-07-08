@@ -51,6 +51,12 @@ export interface ParsedMidi {
 /** パート種別 */
 export type PartRole = 'Soprano' | 'Alto' | 'Tenor' | 'Bass' | 'Piano' | 'Excluded';
 
+/** 声部（合唱の実声部。伴奏・除外を除いたロール） */
+export type VoiceRole = Exclude<PartRole, 'Piano' | 'Excluded'>;
+
+/** 合唱編成の種別 */
+export type ChoirType = 'mixed' | 'men' | 'women';
+
 /** 楽器選択肢 */
 export type InstrumentChoice = 'clarinet' | 'piano' | 'woodblock';
 
@@ -60,6 +66,11 @@ export interface TrackConfig {
   trackId: number;
   /** 割り当てパート */
   role: PartRole;
+  /**
+   * 出力・グルーピングに使うパート名（例: "Bass1", "Soprano", "Piano"）。
+   * 同名の複数トラックは1つの出力にまとまる。Excludedのトラックは空文字。
+   */
+  partName: string;
   /** 使用楽器 */
   instrument: InstrumentChoice;
 }
@@ -117,10 +128,10 @@ export interface GeneratedPart {
 export interface AppState {
   /** 解析済みMIDIデータ */
   parsedMidi: ParsedMidi | null;
+  /** 合唱編成の種別（自動割り当ての基準） */
+  choirType: ChoirType;
   /** 各トラックの設定 */
   trackConfigs: TrackConfig[];
-  /** パート名の表示/出力上書き */
-  partNames: Record<Exclude<PartRole, 'Excluded'>, string>;
   /** 主役以外の音量 (0-100) */
   backgroundVolumePercent: number;
   /** 進捗状態 */

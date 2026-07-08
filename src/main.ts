@@ -4,13 +4,13 @@
  */
 
 import './styles/main.css';
-import { createInitialAppState, resetGeneration, setBackgroundVolume, setParsedMidi, setPartName, updateTrackConfig } from './state/app-state.ts';
+import { createInitialAppState, resetGeneration, setBackgroundVolume, setChoirType, setParsedMidi, setTrackPartName, updateTrackConfig } from './state/app-state.ts';
 import type { AppState } from './core/types.ts';
 import { setupDownloadButton } from './ui/components/download-button.ts';
 import { setupFileUpload } from './ui/components/file-upload.ts';
 import { bindTrackConfigHandlers } from './ui/components/track-config.ts';
 import { setupVolumeControl } from './ui/components/volume-control.ts';
-import { renderAppShell, renderAppState, setUploadStatus } from './ui/renderer.ts';
+import { renderAppShell, renderAppState, renderControls, setUploadStatus } from './ui/renderer.ts';
 
 function initApp(): void {
   const app = document.querySelector<HTMLDivElement>('#app');
@@ -26,6 +26,11 @@ function initApp(): void {
   const updateState = (updater: (current: AppState) => AppState): void => {
     state = updater(state);
     render();
+  };
+  // トラック表を再構築せず、状態更新とコントロール表示のみ行う（入力中のフォーカス維持）
+  const updateStateControlsOnly = (updater: (current: AppState) => AppState): void => {
+    state = updater(state);
+    renderControls(state);
   };
 
   const dropZone = document.querySelector<HTMLDivElement>('#drop-zone');
@@ -83,14 +88,18 @@ function initApp(): void {
   });
 
   bindTrackConfigHandlers(trackConfigContainer, {
+    onChoirTypeChange: (choirType) => {
+      updateState((current) => setChoirType(current, choirType));
+    },
     onRoleChange: (trackId, role) => {
       updateState((current) => resetGeneration(updateTrackConfig(current, trackId, { role })));
     },
     onInstrumentChange: (trackId, instrument) => {
       updateState((current) => resetGeneration(updateTrackConfig(current, trackId, { instrument })));
     },
-    onPartNameChange: (role, name) => {
-      updateState((current) => resetGeneration(setPartName(current, role, name)));
+    onPartNameChange: (trackId, name) => {
+      // 入力中はトラック表を再描画しない（フォーカス維持）。名前変更で生成結果は無効化する
+      updateStateControlsOnly((current) => resetGeneration(setTrackPartName(current, trackId, name)));
     },
   });
 

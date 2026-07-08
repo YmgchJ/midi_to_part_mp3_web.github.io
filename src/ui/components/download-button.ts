@@ -1,11 +1,17 @@
 import { sanitizeFileName } from '../../core/file-name.ts';
-import type { AppState, GeneratedPart, PartRole } from '../../core/types.ts';
+import type { AppState, GeneratedPart } from '../../core/types.ts';
 import { addGeneratedPart, resetGeneration, setProgress } from '../../state/app-state.ts';
 
 interface DownloadButtonOptions {
   button: HTMLButtonElement;
   getState: () => AppState;
   updateState: (updater: (state: AppState) => AppState) => void;
+}
+
+/** 生成対象の1パート（同名トラックはまとめて1出力にする） */
+interface PartGroup {
+  partName: string;
+  trackIds: number[];
 }
 
 function downloadBlob(blob: Blob, fileName: string): void {
@@ -17,11 +23,22 @@ function downloadBlob(blob: Blob, fileName: string): void {
   URL.revokeObjectURL(url);
 }
 
-function getActiveRoles(state: AppState): Array<Exclude<PartRole, 'Excluded'>> {
-  const roles = state.trackConfigs
-    .filter((config): config is typeof config & { role: Exclude<PartRole, 'Excluded'> } => config.role !== 'Excluded')
-    .map((config) => config.role);
-  return Array.from(new Set(roles));
+/** Excluded以外のトラックをパート名でグルーピングする（出力順はトラック順を維持） */
+export function getPartGroups(state: AppState): PartGroup[] {
+  const groups: PartGroup[] = [];
+  const indexByName = new Map<string, number>();
+  for (const config of state.trackConfigs) {
+    if (config.role === 'Excluded') continue;
+    const partName = config.partName || String(config.role);
+    const existing = indexByName.get(partName);
+    if (existing === undefined) {
+      indexByName.set(partName, groups.length);
+      groups.push({ partName, trackIds: [config.trackId] });
+    } else {
+      groups[existing].trackIds.push(config.trackId);
+    }
+  }
+  return groups;
 }
 
 export function setupDownloadButton(options: DownloadButtonOptions): void {
@@ -39,8 +56,8 @@ export function setupDownloadButton(options: DownloadButtonOptions): void {
         return;
       }
 
-      const activeRoles = getActiveRoles(current);
-      if (activeRoles.length === 0) return;
+      const parts = getPartGroups(current);
+      if (parts.length === 0) return;
 
       const baseFileName = sanitizeFileName(current.parsedMidi.fileName);
       latestZipBlob = null;
@@ -59,14 +76,13 @@ export function setupDownloadButton(options: DownloadButtonOptions): void {
         ]);
         const generatedParts: GeneratedPart[] = [];
 
-        for (let i = 0; i < activeRoles.length; i++) {
-          const role = activeRoles[i];
-          const roleName = current.partNames[role];
+        for (let i = 0; i < parts.length; i++) {
+          const { partName, trackIds } = parts[i];
           updateState((state) => setProgress(state, {
             phase: 'rendering',
-            currentPartName: roleName,
+            currentPartName: partName,
             currentPartIndex: i,
-            totalParts: activeRoles.length,
+            totalParts: parts.length,
             partProgress: 0,
             errorMessage: undefined,
           }));
@@ -79,32 +95,32 @@ export function setupDownloadButton(options: DownloadButtonOptions): void {
           const audioBuffer = await renderPartAudio(
             latestState.parsedMidi,
             latestState.trackConfigs,
-            role,
+            trackIds,
             latestState.backgroundVolumePercent
           );
 
           updateState((state) => setProgress(state, {
             phase: 'encoding',
-            currentPartName: roleName,
+            currentPartName: partName,
             currentPartIndex: i,
-            totalParts: activeRoles.length,
+            totalParts: parts.length,
             partProgress: 0,
           }));
 
           const mp3Blob = await encodeToMp3(audioBuffer, undefined, (percent) => {
             updateState((state) => setProgress(state, {
               phase: 'encoding',
-              currentPartName: roleName,
+              currentPartName: partName,
               currentPartIndex: i,
-              totalParts: activeRoles.length,
+              totalParts: parts.length,
               partProgress: percent,
             }));
           });
 
           const generated: GeneratedPart = {
-            partName: roleName,
+            partName,
             mp3Blob,
-            fileName: `${baseFileName}_${sanitizeFileName(roleName)}.mp3`,
+            fileName: `${baseFileName}_${sanitizeFileName(partName)}.mp3`,
           };
           generatedParts.push(generated);
           updateState((state) => addGeneratedPart(state, generated));
@@ -113,8 +129,8 @@ export function setupDownloadButton(options: DownloadButtonOptions): void {
         updateState((state) => setProgress(state, {
           phase: 'zipping',
           currentPartName: 'ZIP',
-          currentPartIndex: Math.max(activeRoles.length - 1, 0),
-          totalParts: activeRoles.length,
+          currentPartIndex: Math.max(parts.length - 1, 0),
+          totalParts: parts.length,
           partProgress: 0,
         }));
 
@@ -129,8 +145,8 @@ export function setupDownloadButton(options: DownloadButtonOptions): void {
             updateState((state) => setProgress(state, {
               phase: 'zipping',
               currentPartName: 'ZIP',
-              currentPartIndex: Math.max(activeRoles.length - 1, 0),
-              totalParts: activeRoles.length,
+              currentPartIndex: Math.max(parts.length - 1, 0),
+              totalParts: parts.length,
               partProgress: metadata.percent,
             }));
           }
@@ -142,8 +158,8 @@ export function setupDownloadButton(options: DownloadButtonOptions): void {
         updateState((state) => setProgress(state, {
           phase: 'done',
           currentPartName: '完了',
-          currentPartIndex: activeRoles.length - 1,
-          totalParts: activeRoles.length,
+          currentPartIndex: parts.length - 1,
+          totalParts: parts.length,
           partProgress: 100,
         }));
       } catch (error) {

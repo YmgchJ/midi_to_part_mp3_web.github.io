@@ -7,7 +7,7 @@
  */
 
 import * as Tone from 'tone';
-import type { ParsedMidi, ParsedNote, PartRole, TrackConfig } from './types.ts';
+import type { ParsedMidi, ParsedNote, TrackConfig } from './types.ts';
 import { SOUNDFONT_BASE_URL, SOUNDFONT_INSTRUMENT_NAMES } from './constants.ts';
 import type { InstrumentChoice } from './types.ts';
 
@@ -77,7 +77,7 @@ function getSampleUrls(instrument: InstrumentChoice): Record<string, string> {
  *
  * @param parsedMidi - 解析済みMIDIデータ
  * @param trackConfigs - 各トラックの設定
- * @param targetRole - 強調するパート
+ * @param targetTrackIds - 強調する（主役の）トラックID群。ここに含まれるトラックは音量100%
  * @param backgroundVolumePercent - 背景パートの音量 (0-100)
  * @param sampleRate - 出力サンプルレート
  * @returns レンダリング済みAudioBuffer
@@ -85,10 +85,11 @@ function getSampleUrls(instrument: InstrumentChoice): Record<string, string> {
 export async function renderPartAudio(
   parsedMidi: ParsedMidi,
   trackConfigs: TrackConfig[],
-  targetRole: PartRole,
+  targetTrackIds: Iterable<number>,
   backgroundVolumePercent: number,
   sampleRate: number = 44100
 ): Promise<AudioBuffer> {
+  const targetIds = new Set(targetTrackIds);
   const duration = parsedMidi.durationSeconds;
   // 末尾に0.5秒の余白を追加（最終ノートのリリースのため）
   const renderDuration = duration + 0.5;
@@ -109,7 +110,7 @@ export async function renderPartAudio(
       const config = configMap.get(track.id);
       if (!config || track.notes.length === 0) continue;
 
-      const gainValue = config.role === targetRole
+      const gainValue = targetIds.has(track.id)
         ? 1.0
         : backgroundVolumePercent / 100;
 
