@@ -184,8 +184,10 @@ export interface AppState {
 - 採番: 同一ロールに複数トラックがあれば上から `1,2,3…`（`Bass1`, `Bass2`）。単独なら番号なし
 - `renumberByRole()`: 手動でロールを変えた後、既存ロールを尊重したままパート名だけ再採番
 
-打楽器（Percussion）は楽器 `woodblock` を使い、MuseScoreのHigh/Low Wood Block
-（MIDI 76=E5, 77=F5）に対応する2サンプルで再生する。
+打楽器（Percussion）は楽器 `woodblock` を使う。MuseScoreの High/Low Wood Block
+（GM打楽器 MIDI 76/77）は、gleitzの木魚だと半音差で音色差がほぼ出ないため、
+`woodblockNoteName()` で 76→C6 / 77→C5 とオクターブ離した2音に振り分け、
+実サンプル（C5.mp3 / C6.mp3）で明確な2音色として鳴らす。
 
 ## 音量ミックス（core/audio-renderer.ts）
 

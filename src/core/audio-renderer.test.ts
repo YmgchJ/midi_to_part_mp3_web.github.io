@@ -141,6 +141,36 @@ describe('renderPartAudio', () => {
     expect(Object.keys(toneMockState.samplerUrls[1])).toContain('A0');
   });
 
+  it('maps woodblock High(76)/Low(77) to two distinct pitches (C6 / C5)', async () => {
+    const parsedMidi: ParsedMidi = {
+      fileName: 'wb',
+      bpm: 120,
+      durationSeconds: 4,
+      tracks: [
+        {
+          id: 0,
+          name: 'Wood Block',
+          channel: 9,
+          instrumentNumber: 115,
+          sourceFileName: 'wb.mid',
+          notes: [
+            { midi: 76, time: 0, duration: 0.1, velocity: 0.9 },
+            { midi: 77, time: 0.5, duration: 0.1, velocity: 0.7 },
+          ],
+        },
+      ],
+    };
+    const trackConfigs: TrackConfig[] = [
+      { trackId: 0, role: 'Percussion', partName: 'Percussion', instrument: 'woodblock' },
+    ];
+
+    await renderPartAudio(parsedMidi, trackConfigs, [0], 50);
+
+    expect(toneMockState.triggerCalls.map((c) => c.noteName)).toEqual(['C6', 'C5']);
+    const wbUrls = Object.keys(toneMockState.samplerUrls[0]);
+    expect(wbUrls).toEqual(expect.arrayContaining(['C5', 'C6']));
+  });
+
   it('mixes so that other voices / woodblock / piano each total to the background level', async () => {
     const parsedMidi: ParsedMidi = {
       fileName: 'demo',

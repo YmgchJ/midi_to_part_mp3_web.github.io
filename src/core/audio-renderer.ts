@@ -66,13 +66,30 @@ function getSampleUrls(instrument: InstrumentChoice): Record<string, string> {
         'D6': `${baseUrl}D6.mp3`,
       };
     case 'woodblock':
-      // MuseScoreのウッドブロックはGM打楽器のHigh/Low Wood Block
-      // （MIDI 76=E5, 77=F5）を使うため、その2音をサンプルにする
+      // MuseScoreのWood BlockはHigh/Low（GM打楽器 MIDI 76/77）の2音を使う。
+      // gleitzの木魚は半音差だと音色差がほぼ出ないため、オクターブ離した
+      // C6(High)/C5(Low)の実サンプルを用意して2音色として鳴らす。
       return {
-        'E5': `${baseUrl}E5.mp3`,
-        'F5': `${baseUrl}F5.mp3`,
+        'C5': `${baseUrl}C5.mp3`,
+        'C6': `${baseUrl}C6.mp3`,
       };
   }
+}
+
+/** High Wood Block (MIDI 76) を割り当てる音程 */
+const WOODBLOCK_HIGH_NOTE = 'C6';
+/** Low Wood Block (MIDI 77) を割り当てる音程 */
+const WOODBLOCK_LOW_NOTE = 'C5';
+
+/**
+ * ウッドブロック用のノート名変換。
+ * MuseScoreの High Wood Block(76) / Low Wood Block(77) を、音程差を広げた
+ * 2音（C6 / C5）に振り分けて明確な2音色にする。それ以外は実ピッチのまま。
+ */
+function woodblockNoteName(midi: number): string {
+  if (midi === 76) return WOODBLOCK_HIGH_NOTE;
+  if (midi === 77) return WOODBLOCK_LOW_NOTE;
+  return midiToNoteName(midi);
 }
 
 /**
@@ -130,7 +147,12 @@ export async function renderPartAudio(
   };
 
   const toneBuffer = await Tone.Offline(async () => {
-    const samplers: Array<{ sampler: Tone.Sampler; gainNode: Tone.Gain; notes: ParsedNote[] }> = [];
+    const samplers: Array<{
+      sampler: Tone.Sampler;
+      gainNode: Tone.Gain;
+      notes: ParsedNote[];
+      instrument: InstrumentChoice;
+    }> = [];
 
     // 各トラックのSamplerを作成
     for (const track of parsedMidi.tracks) {
@@ -146,16 +168,17 @@ export async function renderPartAudio(
         urls: sampleUrls,
       }).connect(gainNode);
 
-      samplers.push({ sampler, gainNode, notes: track.notes });
+      samplers.push({ sampler, gainNode, notes: track.notes, instrument: config.instrument });
     }
 
     // 全サンプルのロードを待つ
     await Tone.loaded();
 
     // ノートをスケジュール
-    for (const { sampler, notes } of samplers) {
+    for (const { sampler, notes, instrument } of samplers) {
       for (const note of notes) {
-        const noteName = midiToNoteName(note.midi);
+        const noteName =
+          instrument === 'woodblock' ? woodblockNoteName(note.midi) : midiToNoteName(note.midi);
         try {
           sampler.triggerAttackRelease(
             noteName,
