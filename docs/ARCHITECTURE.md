@@ -113,10 +113,10 @@ export interface ParsedMidi {
 }
 
 /** パート種別 */
-export type PartRole = 'Soprano' | 'Alto' | 'Tenor' | 'Bass' | 'Piano' | 'Excluded';
+export type PartRole = 'Soprano' | 'Alto' | 'Tenor' | 'Bass' | 'Piano' | 'Percussion' | 'Excluded';
 
-/** 声部（伴奏・除外を除いたロール） */
-export type VoiceRole = Exclude<PartRole, 'Piano' | 'Excluded'>;
+/** 声部（伴奏・打楽器・除外を除いたロール） */
+export type VoiceRole = Exclude<PartRole, 'Piano' | 'Percussion' | 'Excluded'>;
 
 /** 合唱編成の種別 */
 export type ChoirType = 'mixed' | 'men' | 'women';
@@ -172,12 +172,15 @@ export interface AppState {
 
 合唱種別に応じてトラックへロール・パート名を自動割り当てする純粋ロジック。
 
-- 種別ごとの声部セット（高音→低音）: 混声=S/A/T/B、女声=S/A、男声=T/B
-- 分類: ノート無し・パーカッション→除外、ピアノ/伴奏→Piano、残りを声部候補に
-- 配分: 声部トラックを平均ピッチ降順に並べ、トラック名で全て声部判別できればそれを尊重、
-  できなければ声部数のバケットへ上（高音）優先で均等配分
-- 採番: 同一声部に複数トラックがあれば上から `1,2,3…`（`Bass1`, `Bass2`）。単独なら番号なし
+- 種別ごとの声部セット（上→下）: 混声=S/A/T/B、女声=S/A、男声=T/B
+- 分類: ノート無し→除外、パーカッション（ch10/GM115）→Percussion、ピアノ/伴奏→Piano、残りを声部候補に
+- 配分: 声部トラックを**トラックの並び順（上→下）**に声部へ割り当て、トラック名で全て声部判別
+  できればそれを尊重、できなければ声部数のバケットへ上優先で均等配分
+- 採番: 同一ロールに複数トラックがあれば上から `1,2,3…`（`Bass1`, `Bass2`）。単独なら番号なし
 - `renumberByRole()`: 手動でロールを変えた後、既存ロールを尊重したままパート名だけ再採番
+
+打楽器（Percussion）は楽器 `woodblock` を使い、MuseScoreのHigh/Low Wood Block
+（MIDI 76=E5, 77=F5）に対応する2サンプルで再生する。
 
 出力（ZIP内のMP3）は `TrackConfig.partName` でグルーピングされ、同名トラックは1つにまとまる。
 

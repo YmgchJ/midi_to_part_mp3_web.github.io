@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ParsedNote, ParsedTrack } from './types.ts';
-import { assignParts, averagePitch, renumberByRole } from './part-assignment.ts';
+import { assignParts, renumberByRole } from './part-assignment.ts';
 
 function note(midi: number): ParsedNote {
   return { midi, time: 0, duration: 0.5, velocity: 0.8 };
@@ -27,13 +27,6 @@ function track(
 function view(configs: ReturnType<typeof assignParts>) {
   return configs.map((c) => ({ trackId: c.trackId, role: c.role, partName: c.partName }));
 }
-
-describe('averagePitch', () => {
-  it('returns mean midi and -Infinity for empty tracks', () => {
-    expect(averagePitch(track(0, 't', [60, 62]))).toBe(61);
-    expect(averagePitch(track(1, 'empty', []))).toBe(-Infinity);
-  });
-});
 
 describe('assignParts (mixed)', () => {
   it('maps 4 named SATB tracks 1:1 without numbering', () => {
@@ -74,12 +67,13 @@ describe('assignParts (mixed)', () => {
     ]);
   });
 
-  it('distributes unnamed tracks by pitch across voices', () => {
+  it('distributes unnamed tracks by track order (top to bottom), not by pitch', () => {
+    // わざとピッチ順とトラック順を食い違わせても、トラックの並び順で割り当てる
     const tracks = [
-      track(0, 'Track 0', [74]),
-      track(1, 'Track 1', [67]),
-      track(2, 'Track 2', [55]),
-      track(3, 'Track 3', [43]),
+      track(0, 'Track 0', [40]),
+      track(1, 'Track 1', [90]),
+      track(2, 'Track 2', [50]),
+      track(3, 'Track 3', [80]),
     ];
     expect(view(assignParts(tracks, 'mixed'))).toEqual([
       { trackId: 0, role: 'Soprano', partName: 'Soprano' },
@@ -89,19 +83,21 @@ describe('assignParts (mixed)', () => {
     ]);
   });
 
-  it('excludes percussion / empty and treats piano as accompaniment', () => {
+  it('classifies percussion as Percussion and empty tracks as Excluded', () => {
     const tracks = [
       track(0, 'Soprano', [72]),
       track(1, 'Piano', [48, 55]),
-      track(2, 'Drums', [35], { channel: 9, instrumentNumber: 115 }),
+      track(2, 'Drums', [76, 77], { channel: 9, instrumentNumber: 115 }),
       track(3, 'Blank', []),
     ];
-    expect(view(assignParts(tracks, 'mixed'))).toEqual([
+    const configs = assignParts(tracks, 'mixed');
+    expect(view(configs)).toEqual([
       { trackId: 0, role: 'Soprano', partName: 'Soprano' },
       { trackId: 1, role: 'Piano', partName: 'Piano' },
-      { trackId: 2, role: 'Excluded', partName: '' },
+      { trackId: 2, role: 'Percussion', partName: 'Percussion' },
       { trackId: 3, role: 'Excluded', partName: '' },
     ]);
+    expect(configs[2].instrument).toBe('woodblock');
   });
 });
 
@@ -117,12 +113,11 @@ describe('assignParts (men / women)', () => {
     ]);
   });
 
-  it('women choir numbers two sopranos when only sopranos exist', () => {
+  it('women choir numbers two sopranos in track order', () => {
     const tracks = [
       track(0, 'Soprano A', [76]),
       track(1, 'Soprano B', [72]),
     ];
-    // both named Soprano, valid for women's set -> honored, both Soprano -> numbered
     expect(view(assignParts(tracks, 'women'))).toEqual([
       { trackId: 0, role: 'Soprano', partName: 'Soprano1' },
       { trackId: 1, role: 'Soprano', partName: 'Soprano2' },
@@ -131,13 +126,13 @@ describe('assignParts (men / women)', () => {
 });
 
 describe('renumberByRole', () => {
-  it('renumbers within a role by pitch after a manual role change', () => {
+  it('renumbers within a role by track order after a manual role change', () => {
     const tracks = [
-      track(0, 'A', [72]),
+      track(0, 'A', [48]),
       track(1, 'B', [60]),
-      track(2, 'C', [48]),
+      track(2, 'C', [72]),
     ];
-    // user forced all three to Bass
+    // user forced all three to Bass; numbering follows track order (top to bottom)
     const configs = tracks.map((t) => ({
       trackId: t.id,
       role: 'Bass' as const,

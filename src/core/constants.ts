@@ -52,8 +52,15 @@ export const PART_ROLES: readonly PartRole[] = [
   'Tenor',
   'Bass',
   'Piano',
+  'Percussion',
   'Excluded',
 ] as const;
+
+/** ロールの表示ラベル（英名以外のもの） */
+export const ROLE_LABELS: Partial<Record<PartRole, string>> = {
+  Percussion: '打楽器',
+  Excluded: '除外',
+};
 
 /** パートのデフォルト楽器 */
 export const DEFAULT_INSTRUMENT_FOR_ROLE: Record<PartRole, InstrumentChoice> = {
@@ -62,6 +69,7 @@ export const DEFAULT_INSTRUMENT_FOR_ROLE: Record<PartRole, InstrumentChoice> = {
   Tenor: 'clarinet',
   Bass: 'clarinet',
   Piano: 'piano',
+  Percussion: 'woodblock',
   Excluded: 'piano', // 使われないが型を満たすため
 };
 
@@ -88,6 +96,7 @@ export const PART_COLORS: Record<Exclude<PartRole, 'Excluded'>, string> = {
   Tenor: 'var(--color-part-tenor)',
   Bass: 'var(--color-part-bass)',
   Piano: 'var(--color-part-piano)',
+  Percussion: 'var(--color-part-percussion)',
 };
 
 /**
@@ -109,14 +118,14 @@ export const SOUNDFONT_INSTRUMENT_NAMES: Record<InstrumentChoice, string> = {
 
 // === フェーズ表示 ===
 
-/** フェーズごとの表示アイコン */
+/** フェーズごとの表示アイコン（絵文字は使わない） */
 export const PHASE_ICONS: Record<string, string> = {
   idle: '',
-  rendering: '🎵',
-  encoding: '💿',
-  zipping: '📦',
-  done: '✅',
-  error: '❌',
+  rendering: '',
+  encoding: '',
+  zipping: '',
+  done: '',
+  error: '',
 };
 
 /** フェーズごとの日本語ラベル */

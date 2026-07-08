@@ -65,7 +65,7 @@ describe('app-state', () => {
     expect(configs).toEqual([
       { trackId: 0, role: 'Soprano', partName: 'Soprano', instrument: 'clarinet' },
       { trackId: 1, role: 'Piano', partName: 'Piano', instrument: 'piano' },
-      { trackId: 2, role: 'Excluded', partName: '', instrument: 'woodblock' },
+      { trackId: 2, role: 'Percussion', partName: 'Percussion', instrument: 'woodblock' },
     ]);
   });
 
@@ -127,7 +127,7 @@ describe('app-state', () => {
     expect(men.choirType).toBe('men');
     // the single soprano-named voice track gets redistributed into a men's voice
     const voiceRoles = men.trackConfigs
-      .filter((c) => c.role !== 'Excluded' && c.role !== 'Piano')
+      .filter((c) => c.role !== 'Excluded' && c.role !== 'Piano' && c.role !== 'Percussion')
       .map((c) => c.role);
     expect(voiceRoles.every((r) => r === 'Tenor' || r === 'Bass')).toBe(true);
   });

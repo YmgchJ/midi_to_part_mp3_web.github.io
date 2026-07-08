@@ -66,8 +66,11 @@ function getSampleUrls(instrument: InstrumentChoice): Record<string, string> {
         'D6': `${baseUrl}D6.mp3`,
       };
     case 'woodblock':
+      // MuseScoreのウッドブロックはGM打楽器のHigh/Low Wood Block
+      // （MIDI 76=E5, 77=F5）を使うため、その2音をサンプルにする
       return {
-        'G5': `${baseUrl}G5.mp3`,
+        'E5': `${baseUrl}E5.mp3`,
+        'F5': `${baseUrl}F5.mp3`,
       };
   }
 }

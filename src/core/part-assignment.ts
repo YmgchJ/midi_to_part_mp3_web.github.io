@@ -2,27 +2,18 @@
  * core/part-assignment.ts — パート自動割り当て・採番ロジック
  *
  * 合唱種別（混声/女声/男声）に応じて、MIDIトラックを声部へ配分し、
- * 同一声部に複数トラックがある場合は上（高音）から 1,2,3… と採番する。
+ * 同一声部に複数トラックがある場合は上（トラックの並び順）から 1,2,3… と採番する。
  * DOMやブラウザAPIに依存しない純粋ロジック。
  */
 
 import type {
   ChoirType,
-  InstrumentChoice,
   ParsedTrack,
   PartRole,
   TrackConfig,
   VoiceRole,
 } from './types.ts';
 import { CHOIR_VOICES, DEFAULT_INSTRUMENT_FOR_ROLE } from './constants.ts';
-
-/** トラックの平均ピッチ（ノートが無ければ -Infinity） */
-export function averagePitch(track: ParsedTrack): number {
-  if (track.notes.length === 0) return -Infinity;
-  let sum = 0;
-  for (const note of track.notes) sum += note.midi;
-  return sum / track.notes.length;
-}
 
 function isPercussion(track: ParsedTrack): boolean {
   return track.channel === 9 || track.instrumentNumber === 115;
@@ -60,22 +51,17 @@ function distribute<T>(items: readonly T[], buckets: number): T[][] {
   return result;
 }
 
-function defaultInstrument(track: ParsedTrack, role: PartRole): InstrumentChoice {
-  if (isPercussion(track)) return 'woodblock';
-  return DEFAULT_INSTRUMENT_FOR_ROLE[role];
-}
-
 /**
- * ロール（声部/伴奏/除外）を尊重したまま、パート名を採番し直す。
- * 同一ロールが複数なら高音→低音で 1,2,3… を付与し、単独ならロール名のみ。
+ * ロール（声部/伴奏/打楽器/除外）を尊重したまま、パート名を採番し直す。
+ * 同一ロールが複数なら上（トラックの並び順）から 1,2,3… を付与し、単独ならロール名のみ。
  * 手動でロールを変えた後の再採番に使う。
  */
 export function renumberByRole(
   tracks: readonly ParsedTrack[],
   configs: readonly TrackConfig[]
 ): TrackConfig[] {
-  const pitchById = new Map<number, number>();
-  for (const track of tracks) pitchById.set(track.id, averagePitch(track));
+  const orderById = new Map<number, number>();
+  tracks.forEach((track, index) => orderById.set(track.id, index));
 
   const byRole = new Map<PartRole, TrackConfig[]>();
   for (const config of configs) {
@@ -87,10 +73,9 @@ export function renumberByRole(
 
   const nameByTrackId = new Map<number, string>();
   for (const [role, group] of byRole) {
-    const sorted = [...group].sort((a, b) => {
-      const diff = (pitchById.get(b.trackId) ?? -Infinity) - (pitchById.get(a.trackId) ?? -Infinity);
-      return diff !== 0 ? diff : a.trackId - b.trackId;
-    });
+    const sorted = [...group].sort(
+      (a, b) => (orderById.get(a.trackId) ?? 0) - (orderById.get(b.trackId) ?? 0)
+    );
     const multiple = sorted.length > 1;
     sorted.forEach((config, index) => {
       nameByTrackId.set(config.trackId, multiple ? `${role}${index + 1}` : String(role));
@@ -107,10 +92,12 @@ export function renumberByRole(
 /**
  * 合唱種別に基づいてトラックへロール・楽器・パート名を自動割り当てする。
  *
- * - ノート無し / パーカッションは除外
+ * - ノート無しは除外
+ * - パーカッション（ch10 / GM 115）は打楽器（Percussion）
  * - ピアノ・伴奏はPianoロールでBGM扱い
- * - 残りの声部トラックは高音→低音の順に声部へ配分（名前で全て判別できればそれを尊重）
- * - 採番は {@link renumberByRole} に委譲
+ * - 残りの声部トラックはトラックの並び順（上→下）に声部へ配分
+ *   （名前で全て判別できればそれを尊重）
+ * - 採番は {@link renumberByRole} に委譲（上から 1,2,3…）
  */
 export function assignParts(
   tracks: readonly ParsedTrack[],
@@ -121,8 +108,10 @@ export function assignParts(
   const voiceTracks: ParsedTrack[] = [];
 
   for (const track of tracks) {
-    if (track.notes.length === 0 || isPercussion(track)) {
+    if (track.notes.length === 0) {
       roleByTrackId.set(track.id, 'Excluded');
+    } else if (isPercussion(track)) {
+      roleByTrackId.set(track.id, 'Percussion');
     } else if (isAccompaniment(track.name)) {
       roleByTrackId.set(track.id, 'Piano');
     } else {
@@ -130,21 +119,16 @@ export function assignParts(
     }
   }
 
-  // 高音→低音（同ピッチはid昇順で安定化）
-  const sorted = [...voiceTracks].sort((a, b) => {
-    const diff = averagePitch(b) - averagePitch(a);
-    return diff !== 0 ? diff : a.id - b.id;
-  });
-
-  const detected = sorted.map((track) => detectVoice(track.name));
+  // トラックの並び順（上→下）で扱う
+  const detected = voiceTracks.map((track) => detectVoice(track.name));
   const allNamed =
-    sorted.length > 0 &&
+    voiceTracks.length > 0 &&
     detected.every((voice) => voice !== null && voices.includes(voice));
 
   if (allNamed) {
-    sorted.forEach((track, i) => roleByTrackId.set(track.id, detected[i] as VoiceRole));
+    voiceTracks.forEach((track, i) => roleByTrackId.set(track.id, detected[i] as VoiceRole));
   } else {
-    const buckets = distribute(sorted, voices.length);
+    const buckets = distribute(voiceTracks, voices.length);
     buckets.forEach((bucket, b) => {
       for (const track of bucket) roleByTrackId.set(track.id, voices[b]);
     });
@@ -156,7 +140,7 @@ export function assignParts(
       trackId: track.id,
       role,
       partName: '',
-      instrument: defaultInstrument(track, role),
+      instrument: DEFAULT_INSTRUMENT_FOR_ROLE[role],
     };
   });
 

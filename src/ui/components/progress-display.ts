@@ -32,6 +32,7 @@ export function renderProgressDisplay(progress: ProgressState): void {
   if (!isVisible) return;
 
   const icon = PHASE_ICONS[progress.phase] ?? '';
+  const prefix = icon ? `${icon} ` : '';
   const phaseLabel = PHASE_LABELS[progress.phase] ?? progress.phase;
   const partName = progress.currentPartName || '処理';
   const totalParts = Math.max(progress.totalParts, 0);
@@ -39,11 +40,11 @@ export function renderProgressDisplay(progress: ProgressState): void {
   const overallPercent = computeOverallPercent(progress);
 
   if (progress.phase === 'done') {
-    label.textContent = `${icon} すべてのパート生成が完了しました`;
+    label.textContent = `${prefix}すべてのパート生成が完了しました`;
   } else if (progress.phase === 'error' && progress.errorMessage) {
-    label.textContent = `${icon} エラー: ${progress.errorMessage}`;
+    label.textContent = `${prefix}エラー: ${progress.errorMessage}`;
   } else {
-    label.textContent = `${icon} ${partName} を${phaseLabel}中...${partIndexText}`;
+    label.textContent = `${prefix}${partName} を${phaseLabel}中...${partIndexText}`;
   }
 
   percent.textContent = `${overallPercent}%`;

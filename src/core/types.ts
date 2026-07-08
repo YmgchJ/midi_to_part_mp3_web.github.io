@@ -49,10 +49,10 @@ export interface ParsedMidi {
 // === ユーザー設定 ===
 
 /** パート種別 */
-export type PartRole = 'Soprano' | 'Alto' | 'Tenor' | 'Bass' | 'Piano' | 'Excluded';
+export type PartRole = 'Soprano' | 'Alto' | 'Tenor' | 'Bass' | 'Piano' | 'Percussion' | 'Excluded';
 
-/** 声部（合唱の実声部。伴奏・除外を除いたロール） */
-export type VoiceRole = Exclude<PartRole, 'Piano' | 'Excluded'>;
+/** 声部（合唱の実声部。伴奏・打楽器・除外を除いたロール） */
+export type VoiceRole = Exclude<PartRole, 'Piano' | 'Percussion' | 'Excluded'>;
 
 /** 合唱編成の種別 */
 export type ChoirType = 'mixed' | 'men' | 'women';

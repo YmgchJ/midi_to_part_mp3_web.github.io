@@ -1,4 +1,4 @@
-import { CHOIR_TYPES, CHOIR_TYPE_LABELS, INSTRUMENT_LABELS, PART_COLORS } from '../core/constants.ts';
+import { CHOIR_TYPES, CHOIR_TYPE_LABELS, INSTRUMENT_LABELS, PART_COLORS, PART_ROLES, ROLE_LABELS } from '../core/constants.ts';
 import type { AppState, PartRole } from '../core/types.ts';
 import { renderProgressDisplay } from './components/progress-display.ts';
 
@@ -17,6 +17,16 @@ function roleColor(role: PartRole): string {
   return PART_COLORS[role];
 }
 
+function roleOptionLabel(role: PartRole): string {
+  return ROLE_LABELS[role] ?? role;
+}
+
+function renderRoleOptions(selected: PartRole): string {
+  return PART_ROLES.map((role) => `
+    <option value="${role}" ${role === selected ? 'selected' : ''}>${roleOptionLabel(role)}</option>
+  `).join('');
+}
+
 function renderChoirTypeSelector(state: AppState): string {
   const options = CHOIR_TYPES.map((type) => `
     <option value="${type}" ${state.choirType === type ? 'selected' : ''}>${CHOIR_TYPE_LABELS[type]}</option>
@@ -33,7 +43,7 @@ function renderChoirTypeSelector(state: AppState): string {
 export function renderAppShell(root: HTMLDivElement): void {
   root.innerHTML = `
     <header class="header">
-      <h1 class="header__title">🎵 MIDI to Part MP3</h1>
+      <h1 class="header__title">MIDI to Part MP3</h1>
       <p class="header__subtitle">合唱練習用音源を自動生成</p>
     </header>
 
@@ -47,7 +57,13 @@ export function renderAppShell(root: HTMLDivElement): void {
         tabindex="0"
         aria-label="MIDIファイルを選択またはドロップ"
       >
-        <div class="drop-zone__icon">📁</div>
+        <div class="drop-zone__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 16V4" />
+            <path d="M7 9l5-5 5 5" />
+            <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+          </svg>
+        </div>
         <p class="drop-zone__text">ここにMIDIファイルをドラッグ＆ドロップ</p>
         <p class="drop-zone__hint">または、クリックしてファイルを選択（.mid / .midi）</p>
       </div>
@@ -78,7 +94,7 @@ export function renderAppShell(root: HTMLDivElement): void {
       <span class="card__label">Step 3</span>
       <h2 class="card__title">生成 & ダウンロード</h2>
       <button class="btn btn--primary" id="generate-btn" disabled>
-        🎵 練習音源を生成
+        練習音源を生成
       </button>
       <div class="progress hidden" id="progress-container" role="status" aria-live="polite">
         <div class="progress__bar-container">
@@ -105,6 +121,8 @@ export function renderTrackConfigTable(state: AppState): string {
   const rows = state.parsedMidi.tracks.map((track) => {
     const config = configMap.get(track.id);
     if (!config) return '';
+    // ノートの無いトラック（自動で除外されるもの）は最初から表示しない
+    if (track.notes.length === 0) return '';
 
     const noteCount = track.notes.length;
     const isExcluded = config.role === 'Excluded';
@@ -128,12 +146,7 @@ export function renderTrackConfigTable(state: AppState): string {
         </td>
         <td data-label="Part">
           <select class="select js-role-select" data-track-id="${track.id}">
-            <option value="Soprano" ${config.role === 'Soprano' ? 'selected' : ''}>Soprano</option>
-            <option value="Alto" ${config.role === 'Alto' ? 'selected' : ''}>Alto</option>
-            <option value="Tenor" ${config.role === 'Tenor' ? 'selected' : ''}>Tenor</option>
-            <option value="Bass" ${config.role === 'Bass' ? 'selected' : ''}>Bass</option>
-            <option value="Piano" ${config.role === 'Piano' ? 'selected' : ''}>Piano</option>
-            <option value="Excluded" ${config.role === 'Excluded' ? 'selected' : ''}>除外</option>
+            ${renderRoleOptions(config.role)}
           </select>
         </td>
         <td data-label="パート名">
@@ -188,10 +201,10 @@ export function renderControls(state: AppState): void {
       generateBtn.textContent = '処理中...';
       generateBtn.classList.add('btn--primary');
     } else if (isDone) {
-      generateBtn.textContent = '📥 ZIPを再ダウンロード';
+      generateBtn.textContent = 'ZIPを再ダウンロード';
       generateBtn.classList.add('btn--success');
     } else {
-      generateBtn.textContent = '🎵 練習音源を生成';
+      generateBtn.textContent = '練習音源を生成';
       generateBtn.classList.add('btn--primary');
     }
   }
