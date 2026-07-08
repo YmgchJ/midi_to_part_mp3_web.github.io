@@ -122,14 +122,14 @@ describe('app-state', () => {
 
   it('reassigns tracks when the choir type changes', () => {
     const initial = setParsedMidi(createInitialAppState(), makeParsedMidi());
-    const men = setChoirType(initial, 'men');
+    const men = setChoirType(initial, 'men3');
 
-    expect(men.choirType).toBe('men');
+    expect(men.choirType).toBe('men3');
     // the single soprano-named voice track gets redistributed into a men's voice
     const voiceRoles = men.trackConfigs
       .filter((c) => c.role !== 'Excluded' && c.role !== 'Piano' && c.role !== 'Percussion')
       .map((c) => c.role);
-    expect(voiceRoles.every((r) => r === 'Tenor' || r === 'Bass')).toBe(true);
+    expect(voiceRoles.every((r) => r === 'Tenor' || r === 'Baritone' || r === 'Bass')).toBe(true);
   });
 
   it('updates progress and manages generated parts', () => {

@@ -27,8 +27,11 @@ function isAccompaniment(name: string): boolean {
 /** トラック名から声部を推定（判別できなければ null） */
 function detectVoice(name: string): VoiceRole | null {
   const n = name.toLowerCase();
+  // mezzo は soprano を含むので先に判定する
+  if (n.includes('mezzo')) return 'MezzoSoprano';
   if (n.includes('soprano') || n.includes('sop')) return 'Soprano';
   if (n.includes('alto') || n.includes('alt')) return 'Alto';
+  if (n.includes('baritone') || n.includes('bariton')) return 'Baritone';
   if (n.includes('tenor') || n.includes('ten')) return 'Tenor';
   if (n.includes('bass') || n.includes('bas')) return 'Bass';
   return null;

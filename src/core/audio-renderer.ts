@@ -7,7 +7,7 @@
  */
 
 import * as Tone from 'tone';
-import type { ParsedMidi, ParsedNote, TrackConfig } from './types.ts';
+import type { ParsedMidi, ParsedNote, ParsedTrack, TrackConfig } from './types.ts';
 import { SOUNDFONT_BASE_URL, SOUNDFONT_INSTRUMENT_NAMES } from './constants.ts';
 import type { InstrumentChoice } from './types.ts';
 
@@ -105,6 +105,30 @@ export async function renderPartAudio(
     }
   }
 
+  // 音量ミックス（既定 level=0.5）:
+  //   ソロ（主役）: 各トラック 1.0
+  //   他の声部パート合計 / ウッドブロック合計 / ピアノ合計: それぞれ合計が level
+  // → 既定で ソロ : 他声部計 : WB : Piano = 2 : 1 : 1 : 1
+  // 各カテゴリはトラック本数で等分し、「それぞれ50%」ではなく「合計が level」になるようにする
+  const level = Math.max(0, backgroundVolumePercent) / 100;
+  let otherVoiceCount = 0;
+  let pianoCount = 0;
+  let woodblockCount = 0;
+  for (const track of parsedMidi.tracks) {
+    const config = configMap.get(track.id);
+    if (!config || track.notes.length === 0 || targetIds.has(track.id)) continue;
+    if (config.role === 'Piano') pianoCount++;
+    else if (config.role === 'Percussion') woodblockCount++;
+    else otherVoiceCount++;
+  }
+
+  const gainFor = (track: ParsedTrack, config: TrackConfig): number => {
+    if (targetIds.has(track.id)) return 1.0;
+    if (config.role === 'Piano') return pianoCount > 0 ? level / pianoCount : 0;
+    if (config.role === 'Percussion') return woodblockCount > 0 ? level / woodblockCount : 0;
+    return otherVoiceCount > 0 ? level / otherVoiceCount : 0;
+  };
+
   const toneBuffer = await Tone.Offline(async () => {
     const samplers: Array<{ sampler: Tone.Sampler; gainNode: Tone.Gain; notes: ParsedNote[] }> = [];
 
@@ -113,9 +137,7 @@ export async function renderPartAudio(
       const config = configMap.get(track.id);
       if (!config || track.notes.length === 0) continue;
 
-      const gainValue = targetIds.has(track.id)
-        ? 1.0
-        : backgroundVolumePercent / 100;
+      const gainValue = gainFor(track, config);
 
       const gainNode = new Tone.Gain(gainValue).toDestination();
       const sampleUrls = getSampleUrls(config.instrument);

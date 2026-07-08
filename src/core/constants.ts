@@ -15,23 +15,28 @@ export const DEFAULT_BACKGROUND_VOLUME = 50;
 export const DEFAULT_CHOIR_TYPE: ChoirType = 'mixed';
 
 /** 合唱種別の並び順（UIセレクトのoptions） */
-export const CHOIR_TYPES: readonly ChoirType[] = ['mixed', 'women', 'men'] as const;
+export const CHOIR_TYPES: readonly ChoirType[] = ['mixed', 'women3', 'women4', 'men3', 'men4'] as const;
 
 /** 合唱種別の日本語ラベル */
 export const CHOIR_TYPE_LABELS: Record<ChoirType, string> = {
-  mixed: '混声',
-  women: '女声',
-  men: '男声',
+  mixed: '混声4部',
+  women3: '女声3部',
+  women4: '女声4部',
+  men3: '男声3部',
+  men4: '男声4部',
 };
 
 /**
- * 合唱種別ごとの声部セット（高音→低音の順）。
- * この順にトラックを配分し、同一声部が複数あれば上から採番する。
+ * 合唱種別ごとの声部セット（上→下の順）。
+ * この順にトラックを配分し、同一ロールが複数あれば上から採番する。
+ * men4/women4 のように同じロールを複数スロット持たせると自動で番号が付く。
  */
 export const CHOIR_VOICES: Record<ChoirType, readonly VoiceRole[]> = {
   mixed: ['Soprano', 'Alto', 'Tenor', 'Bass'],
-  women: ['Soprano', 'Alto'],
-  men: ['Tenor', 'Bass'],
+  women3: ['Soprano', 'MezzoSoprano', 'Alto'],
+  women4: ['Soprano', 'Soprano', 'Alto', 'Alto'],
+  men3: ['Tenor', 'Baritone', 'Bass'],
+  men4: ['Tenor', 'Tenor', 'Baritone', 'Bass'],
 };
 
 /** MP3ビットレート (kbps) */
@@ -48,16 +53,19 @@ export const MP3_CHUNK_SIZE = 1152;
 /** 利用可能なパートロール一覧（UIセレクトのoptions） */
 export const PART_ROLES: readonly PartRole[] = [
   'Soprano',
+  'MezzoSoprano',
   'Alto',
   'Tenor',
+  'Baritone',
   'Bass',
   'Piano',
   'Percussion',
   'Excluded',
 ] as const;
 
-/** ロールの表示ラベル（英名以外のもの） */
+/** ロールの表示ラベル（プルダウン用。英名と異なるもののみ上書き） */
 export const ROLE_LABELS: Partial<Record<PartRole, string>> = {
+  MezzoSoprano: 'Mezzo-Soprano',
   Percussion: '打楽器',
   Excluded: '除外',
 };
@@ -65,8 +73,10 @@ export const ROLE_LABELS: Partial<Record<PartRole, string>> = {
 /** パートのデフォルト楽器 */
 export const DEFAULT_INSTRUMENT_FOR_ROLE: Record<PartRole, InstrumentChoice> = {
   Soprano: 'clarinet',
+  MezzoSoprano: 'clarinet',
   Alto: 'clarinet',
   Tenor: 'clarinet',
+  Baritone: 'clarinet',
   Bass: 'clarinet',
   Piano: 'piano',
   Percussion: 'woodblock',
@@ -92,8 +102,10 @@ export const INSTRUMENT_LABELS: Record<InstrumentChoice, string> = {
 /** パートの表示色（CSSカスタムプロパティ名） */
 export const PART_COLORS: Record<Exclude<PartRole, 'Excluded'>, string> = {
   Soprano: 'var(--color-part-soprano)',
+  MezzoSoprano: 'var(--color-part-mezzosoprano)',
   Alto: 'var(--color-part-alto)',
   Tenor: 'var(--color-part-tenor)',
+  Baritone: 'var(--color-part-baritone)',
   Bass: 'var(--color-part-bass)',
   Piano: 'var(--color-part-piano)',
   Percussion: 'var(--color-part-percussion)',

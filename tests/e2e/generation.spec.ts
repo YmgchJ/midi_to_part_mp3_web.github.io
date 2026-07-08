@@ -38,7 +38,7 @@ test('generation smoke: upload -> auto-assign -> generate -> complete', async ({
 
   await expect(page.locator('#generate-btn')).toBeEnabled();
   await page.click('#generate-btn');
-  await expect(page.locator('#generate-btn')).toHaveText('📥 ZIPを再ダウンロード', {
+  await expect(page.locator('#generate-btn')).toHaveText('ZIPを再ダウンロード', {
     timeout: 120000,
   });
 });
@@ -52,10 +52,11 @@ test('changing choir type reassigns parts', async ({ page }) => {
   });
 
   await expect(page.locator('#step-config')).toBeVisible();
-  // 男声へ切り替えると Soprano は Tenor/Bass 側へ再割り当てされる
-  await page.selectOption('.js-choir-type-select', 'men');
+  // 男声3部へ切り替えると Soprano は Tenor/Baritone/Bass 側へ再割り当てされる
+  await page.selectOption('.js-choir-type-select', 'men3');
   const roles = page.locator('.js-role-select');
-  for (let i = 0; i < 3; i++) {
+  const count = await roles.count();
+  for (let i = 0; i < count; i++) {
     await expect(roles.nth(i)).not.toHaveValue('Soprano');
   }
 });

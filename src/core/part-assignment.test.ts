@@ -101,26 +101,53 @@ describe('assignParts (mixed)', () => {
   });
 });
 
-describe('assignParts (men / women)', () => {
-  it('men choir uses Tenor/Bass and redistributes non-matching voices', () => {
-    const tracks = [
-      track(0, 'Melody', [60]),
-      track(1, 'Low', [45]),
-    ];
-    expect(view(assignParts(tracks, 'men'))).toEqual([
+describe('assignParts (men 3/4-part)', () => {
+  it('men3 = Tenor / Baritone / Bass (unnamed → track order)', () => {
+    const tracks = [track(0, 'A', [60]), track(1, 'B', [52]), track(2, 'C', [43])];
+    expect(view(assignParts(tracks, 'men3'))).toEqual([
       { trackId: 0, role: 'Tenor', partName: 'Tenor' },
-      { trackId: 1, role: 'Bass', partName: 'Bass' },
+      { trackId: 1, role: 'Baritone', partName: 'Baritone' },
+      { trackId: 2, role: 'Bass', partName: 'Bass' },
     ]);
   });
 
-  it('women choir numbers two sopranos in track order', () => {
+  it('men4 splits Tenor into Tenor1/Tenor2 (top/second)', () => {
     const tracks = [
-      track(0, 'Soprano A', [76]),
-      track(1, 'Soprano B', [72]),
+      track(0, 'Top Tenor', [67]),
+      track(1, 'Second Tenor', [62]),
+      track(2, 'Baritone', [52]),
+      track(3, 'Bass', [43]),
     ];
-    expect(view(assignParts(tracks, 'women'))).toEqual([
+    expect(view(assignParts(tracks, 'men4'))).toEqual([
+      { trackId: 0, role: 'Tenor', partName: 'Tenor1' },
+      { trackId: 1, role: 'Tenor', partName: 'Tenor2' },
+      { trackId: 2, role: 'Baritone', partName: 'Baritone' },
+      { trackId: 3, role: 'Bass', partName: 'Bass' },
+    ]);
+  });
+});
+
+describe('assignParts (women 3/4-part)', () => {
+  it('women3 = Soprano / MezzoSoprano / Alto (named)', () => {
+    const tracks = [
+      track(0, 'Soprano', [76]),
+      track(1, 'Mezzo Soprano', [69]),
+      track(2, 'Alto', [62]),
+    ];
+    expect(view(assignParts(tracks, 'women3'))).toEqual([
+      { trackId: 0, role: 'Soprano', partName: 'Soprano' },
+      { trackId: 1, role: 'MezzoSoprano', partName: 'MezzoSoprano' },
+      { trackId: 2, role: 'Alto', partName: 'Alto' },
+    ]);
+  });
+
+  it('women4 = Soprano1/Soprano2/Alto1/Alto2 (unnamed → track order)', () => {
+    const tracks = [track(0, 'A', [79]), track(1, 'B', [74]), track(2, 'C', [67]), track(3, 'D', [60])];
+    expect(view(assignParts(tracks, 'women4'))).toEqual([
       { trackId: 0, role: 'Soprano', partName: 'Soprano1' },
       { trackId: 1, role: 'Soprano', partName: 'Soprano2' },
+      { trackId: 2, role: 'Alto', partName: 'Alto1' },
+      { trackId: 3, role: 'Alto', partName: 'Alto2' },
     ]);
   });
 });

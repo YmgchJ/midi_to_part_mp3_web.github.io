@@ -28,8 +28,10 @@
 
   /* === Part Colors === */
   --color-part-soprano: #f472b6;
+  --color-part-mezzosoprano: #e879f9;
   --color-part-alto: #a78bfa;
   --color-part-tenor: #60a5fa;
+  --color-part-baritone: #22d3ee;
   --color-part-bass: #34d399;
   --color-part-piano: #fbbf24;
   --color-part-percussion: #f59e0b;

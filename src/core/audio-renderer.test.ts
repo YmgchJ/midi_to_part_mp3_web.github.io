@@ -141,6 +141,33 @@ describe('renderPartAudio', () => {
     expect(Object.keys(toneMockState.samplerUrls[1])).toContain('A0');
   });
 
+  it('mixes so that other voices / woodblock / piano each total to the background level', async () => {
+    const parsedMidi: ParsedMidi = {
+      fileName: 'demo',
+      bpm: 120,
+      durationSeconds: 5,
+      tracks: [
+        { id: 0, name: 'Solo', channel: 0, instrumentNumber: 71, sourceFileName: 'd.mid', notes: [{ midi: 67, time: 0, duration: 0.5, velocity: 0.8 }] },
+        { id: 1, name: 'Other A', channel: 1, instrumentNumber: 71, sourceFileName: 'd.mid', notes: [{ midi: 62, time: 0, duration: 0.5, velocity: 0.8 }] },
+        { id: 2, name: 'Other B', channel: 2, instrumentNumber: 71, sourceFileName: 'd.mid', notes: [{ midi: 55, time: 0, duration: 0.5, velocity: 0.8 }] },
+        { id: 3, name: 'Piano', channel: 3, instrumentNumber: 0, sourceFileName: 'd.mid', notes: [{ midi: 48, time: 0, duration: 0.5, velocity: 0.8 }] },
+        { id: 4, name: 'WB', channel: 9, instrumentNumber: 115, sourceFileName: 'd.mid', notes: [{ midi: 76, time: 0, duration: 0.5, velocity: 0.8 }] },
+      ],
+    };
+    const trackConfigs: TrackConfig[] = [
+      { trackId: 0, role: 'Soprano', partName: 'Soprano', instrument: 'clarinet' },
+      { trackId: 1, role: 'Alto', partName: 'Alto', instrument: 'clarinet' },
+      { trackId: 2, role: 'Tenor', partName: 'Tenor', instrument: 'clarinet' },
+      { trackId: 3, role: 'Piano', partName: 'Piano', instrument: 'piano' },
+      { trackId: 4, role: 'Percussion', partName: 'Percussion', instrument: 'woodblock' },
+    ];
+
+    await renderPartAudio(parsedMidi, trackConfigs, [0], 50);
+
+    // solo=1.0, 他声部2本=各0.25(合計0.5), piano=0.5, woodblock=0.5 → 2:1:1:1
+    expect(toneMockState.gainValues).toEqual([1.0, 0.25, 0.25, 0.5, 0.5]);
+  });
+
   it('ignores tracks without config and continues when sampler rejects out-of-range notes', async () => {
     const parsedMidi = makeParsedMidi();
     const trackConfigs: TrackConfig[] = [
