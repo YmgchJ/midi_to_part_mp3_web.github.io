@@ -67,17 +67,16 @@ export const PART_COLORS: Record<Exclude<PartRole, 'Excluded'>, string> = {
 
 /**
  * Tone.Sampler用の楽器サンプルURL構成
- * gleitz/midi-js-soundfonts の FluidR3_GM を使用
+ * public/sounds 配下に配置したサンプルを参照する
  * baseUrl + instrument名 + "/" でサンプルディレクトリにアクセス
  */
-export const SOUNDFONT_BASE_URL =
-  'https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/';
+export const SOUNDFONT_BASE_URL = '/sounds/';
 
 /** 楽器名 → SoundFont ディレクトリ名 */
 export const SOUNDFONT_INSTRUMENT_NAMES: Record<InstrumentChoice, string> = {
-  clarinet: 'clarinet-mp3',
-  piano: 'acoustic_grand_piano-mp3',
-  woodblock: 'woodblock-mp3',
+  clarinet: 'clarinet',
+  piano: 'piano',
+  woodblock: 'woodblock',
 };
 
 // === フェーズ表示 ===

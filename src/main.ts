@@ -4,75 +4,103 @@
  */
 
 import './styles/main.css';
+import { createInitialAppState, resetGeneration, setBackgroundVolume, setParsedMidi, setPartName, updateTrackConfig } from './state/app-state.ts';
+import type { AppState } from './core/types.ts';
+import { setupDownloadButton } from './ui/components/download-button.ts';
+import { setupFileUpload } from './ui/components/file-upload.ts';
+import { bindTrackConfigHandlers } from './ui/components/track-config.ts';
+import { setupVolumeControl } from './ui/components/volume-control.ts';
+import { renderAppShell, renderAppState, setUploadStatus } from './ui/renderer.ts';
 
-/**
- * アプリケーションの初期化
- * DOM構築は ui/renderer.ts に委譲する（P3で実装）
- */
 function initApp(): void {
   const app = document.querySelector<HTMLDivElement>('#app');
-  if (!app) {
-    throw new Error('Root element #app not found');
+  if (!app) throw new Error('Root element #app not found');
+
+  renderAppShell(app);
+  let state = createInitialAppState();
+  const getState = (): AppState => state;
+
+  const render = (): void => {
+    renderAppState(state);
+  };
+  const updateState = (updater: (current: AppState) => AppState): void => {
+    state = updater(state);
+    render();
+  };
+
+  const dropZone = document.querySelector<HTMLDivElement>('#drop-zone');
+  const fileTags = document.querySelector<HTMLDivElement>('#file-tags');
+  const volumeSlider = document.querySelector<HTMLInputElement>('#volume-slider');
+  const trackConfigContainer = document.querySelector<HTMLDivElement>('#track-config-container');
+  const generateButton = document.querySelector<HTMLButtonElement>('#generate-btn');
+
+  if (!dropZone || !fileTags || !volumeSlider || !trackConfigContainer || !generateButton) {
+    throw new Error('Required UI elements not found');
   }
 
-  app.innerHTML = `
-    <header class="header">
-      <h1 class="header__title">🎵 MIDI to Part MP3</h1>
-      <p class="header__subtitle">合唱練習用音源を自動生成</p>
-    </header>
+  setupFileUpload({
+    dropZone,
+    fileTags,
+    onValidationError: (message) => {
+      setUploadStatus(`エラー: ${message}`, true);
+    },
+    onFilesChanged: async (files) => {
+      if (files.length === 0) {
+        updateState(() => createInitialAppState());
+        setUploadStatus('', false);
+        return;
+      }
 
-    <section class="card" id="step-upload">
-      <span class="card__label">Step 1</span>
-      <h2 class="card__title">MIDIファイルをアップロード</h2>
-      <div class="drop-zone" id="drop-zone">
-        <div class="drop-zone__icon">📁</div>
-        <p class="drop-zone__text">ここにMIDIファイルをドラッグ＆ドロップ</p>
-        <p class="drop-zone__hint">または、クリックしてファイルを選択（.mid / .midi）</p>
-      </div>
-      <div class="file-tags" id="file-tags"></div>
-    </section>
+      setUploadStatus('MIDIを解析中...', false);
+      try {
+        const { parseMidiFiles } = await import('./core/midi-parser.ts');
+        const buffers = await Promise.all(files.map(async (file) => ({
+          name: file.name,
+          buffer: await file.arrayBuffer(),
+        })));
+        const parsed = parseMidiFiles(buffers);
+        updateState((current) => setParsedMidi(current, parsed));
+        setUploadStatus(`${parsed.tracks.length}トラックを読み込みました`, false);
 
-    <section class="card hidden" id="step-config">
-      <span class="card__label">Step 2</span>
-      <h2 class="card__title">トラック設定</h2>
-      <div id="track-config-container"></div>
-      <div class="volume-control">
-        <label class="volume-control__label" for="volume-slider">主役以外の音量</label>
-        <input
-          type="range"
-          id="volume-slider"
-          class="volume-control__slider"
-          min="0"
-          max="100"
-          step="5"
-          value="50"
-        />
-        <span class="volume-control__value" id="volume-value">50%</span>
-      </div>
-    </section>
+        // 初回生成ボタン押下時の待ちを減らすため、重い依存を先読みする
+        void Promise.all([
+          import('./core/audio-renderer.ts'),
+          import('./core/mp3-encoder.ts'),
+          import('jszip'),
+        ]);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        setUploadStatus(`エラー: ${message}`, true);
+      }
+    },
+  });
 
-    <section class="card hidden" id="step-generate">
-      <span class="card__label">Step 3</span>
-      <h2 class="card__title">生成 & ダウンロード</h2>
-      <button class="btn btn--primary" id="generate-btn" disabled>
-        🎵 練習音源を生成
-      </button>
-      <div class="progress hidden" id="progress-container">
-        <div class="progress__bar-container">
-          <div class="progress__bar" id="progress-bar" style="transform: scaleX(0)"></div>
-        </div>
-        <div class="progress__text">
-          <span id="progress-label"></span>
-          <span class="progress__percent" id="progress-percent">0%</span>
-        </div>
-      </div>
-    </section>
+  setupVolumeControl({
+    slider: volumeSlider,
+    onChange: (percent) => {
+      updateState((current) => resetGeneration(setBackgroundVolume(current, percent)));
+    },
+  });
 
-    <footer class="footer">
-      <p>MIDI to Part MP3 — 合唱練習用音源自動生成ツール</p>
-      <p>すべての処理はブラウザ内で完結します。サーバーへのデータ送信はありません。</p>
-    </footer>
-  `;
+  bindTrackConfigHandlers(trackConfigContainer, {
+    onRoleChange: (trackId, role) => {
+      updateState((current) => resetGeneration(updateTrackConfig(current, trackId, { role })));
+    },
+    onInstrumentChange: (trackId, instrument) => {
+      updateState((current) => resetGeneration(updateTrackConfig(current, trackId, { instrument })));
+    },
+    onPartNameChange: (role, name) => {
+      updateState((current) => resetGeneration(setPartName(current, role, name)));
+    },
+  });
+
+  setupDownloadButton({
+    button: generateButton,
+    getState,
+    updateState,
+  });
+
+  render();
 }
 
 // DOM読み込み完了後に初期化

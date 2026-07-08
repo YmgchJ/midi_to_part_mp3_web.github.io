@@ -2,8 +2,19 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 
+function resolveGithubPagesBase(): string {
+  const repository = process.env.GITHUB_REPOSITORY;
+  if (!repository) return '/';
+
+  const [owner, repoName = ''] = repository.split('/');
+  if (repoName.toLowerCase() === `${owner?.toLowerCase()}.github.io`) {
+    return '/';
+  }
+  return `/${repoName}/`;
+}
+
 export default defineConfig(({ mode }) => ({
-  base: mode === 'production' ? '/midi_to_part_mp3_web.github.io/' : '/',
+  base: mode === 'production' ? resolveGithubPagesBase() : '/',
 
   resolve: {
     alias: {

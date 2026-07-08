@@ -123,6 +123,12 @@ body {
   background-color: var(--color-accent-subtle);
 }
 
+.drop-zone:focus-visible {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-subtle);
+}
+
 .drop-zone--active {
   border-color: var(--color-accent);
   background-color: var(--color-accent-subtle);
@@ -265,6 +271,42 @@ body {
   box-shadow: 0 0 0 2px var(--color-accent-subtle);
 }
 
+.part-name-input {
+  margin-top: var(--space-1);
+  width: 100%;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-sm);
+  padding: var(--space-2) var(--space-3);
+}
+
+.part-name-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent-subtle);
+}
+
+.part-name-grid {
+  margin-top: var(--space-4);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.part-name-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.part-name-field__label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
 /* === Volume Slider === */
 
 .volume-control {
@@ -364,6 +406,11 @@ body {
   transform: none;
 }
 
+.btn:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-md), 0 0 0 3px var(--color-accent-subtle);
+}
+
 /* === Progress === */
 
 .progress {
@@ -461,6 +508,57 @@ body {
 
   .track-table {
     display: block;
-    overflow-x: auto;
+  }
+
+  .track-table thead {
+    display: none;
+  }
+
+  .track-table tbody {
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  .track-table tr {
+    display: grid;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-tertiary);
+  }
+
+  .track-table td {
+    display: grid;
+    gap: var(--space-1);
+    border: none;
+    padding: 0;
+  }
+
+  .track-table td::before {
+    content: attr(data-label);
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .part-name-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .volume-control {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .volume-control__label {
+    width: 100%;
+    white-space: normal;
+  }
+
+  .volume-control__value {
+    margin-left: auto;
   }
 }

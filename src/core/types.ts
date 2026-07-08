@@ -119,6 +119,8 @@ export interface AppState {
   parsedMidi: ParsedMidi | null;
   /** 各トラックの設定 */
   trackConfigs: TrackConfig[];
+  /** パート名の表示/出力上書き */
+  partNames: Record<Exclude<PartRole, 'Excluded'>, string>;
   /** 主役以外の音量 (0-100) */
   backgroundVolumePercent: number;
   /** 進捗状態 */
