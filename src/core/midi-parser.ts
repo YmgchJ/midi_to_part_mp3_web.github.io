@@ -13,6 +13,38 @@ import { sanitizeFileName } from './file-name.ts';
 export { sanitizeFileName };
 
 /**
+ * トラック名の文字化けを復元する。
+ *
+ * @tonejs/midi（内部の midi-file）はメタイベントのテキストをバイト単位で
+ * そのまま char code 化するため、日本語などの UTF-8 バイト列が Latin-1 として
+ * 読まれて mojibake（例: 「クラリネット」→「ã¯ã©ãªããã」）になる。
+ * char code を生バイトとして解釈し直し、UTF-8 として再デコードして復元する。
+ * ASCIIのみ／既に正しくデコードされている（>0xFF を含む）場合はそのまま返す。
+ */
+export function decodeTrackName(name: string): string {
+  if (!name) return name;
+
+  const bytes = new Uint8Array(name.length);
+  let hasHighByte = false;
+  for (let i = 0; i < name.length; i++) {
+    const code = name.charCodeAt(i);
+    // 既にマルチバイト文字が入っている＝正しくデコード済みとみなす
+    if (code > 0xff) return name;
+    if (code > 0x7f) hasHighByte = true;
+    bytes[i] = code;
+  }
+  // 純粋なASCIIなら復元不要
+  if (!hasHighByte) return name;
+
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    // 妥当なUTF-8でなければ元の文字列を維持
+    return name;
+  }
+}
+
+/**
  * 単一MIDIファイル（ArrayBuffer）を解析し、ParsedTrack[]を返す
  * Type 0 MIDIの場合はチャンネルごとに分割する
  */
@@ -33,6 +65,7 @@ function parseSingleMidi(
 
   for (const [trackIndex, track] of rawTracks.entries()) {
     const fallbackName = `Track ${trackIndex}`;
+    const trackName = track.name ? decodeTrackName(track.name) : '';
     const channel = track.channel ?? 0;
     const instrumentNumber = channel === 9 ? 115 : (track.instrument?.number ?? 0);
 
@@ -40,7 +73,7 @@ function parseSingleMidi(
       // ノートが空のトラックも一覧には出す（警告付き）
       const parsedTrack: ParsedTrack = {
         id: trackIdOffset + trackIndex,
-        name: track.name || fallbackName,
+        name: trackName || fallbackName,
         channel,
         notes: [],
         instrumentNumber,
@@ -59,7 +92,7 @@ function parseSingleMidi(
 
     const parsedTrack: ParsedTrack = {
       id: trackIdOffset + trackIndex,
-      name: track.name || fallbackName,
+      name: trackName || fallbackName,
       channel,
       notes,
       instrumentNumber,

@@ -69,8 +69,11 @@ export const PART_COLORS: Record<Exclude<PartRole, 'Excluded'>, string> = {
  * Tone.Sampler用の楽器サンプルURL構成
  * public/sounds 配下に配置したサンプルを参照する
  * baseUrl + instrument名 + "/" でサンプルディレクトリにアクセス
+ *
+ * GitHub Pagesのプロジェクトサイトでは配信ルートが `/リポジトリ名/` になるため、
+ * Viteの BASE_URL を前置きして絶対パスのズレ（/sounds/... の404）を防ぐ。
  */
-export const SOUNDFONT_BASE_URL = '/sounds/';
+export const SOUNDFONT_BASE_URL = `${import.meta.env.BASE_URL}sounds/`;
 
 /** 楽器名 → SoundFont ディレクトリ名 */
 export const SOUNDFONT_INSTRUMENT_NAMES: Record<InstrumentChoice, string> = {

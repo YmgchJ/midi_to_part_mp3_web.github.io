@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Midi } from '@tonejs/midi';
-import { parseMidiFiles, sanitizeFileName } from './midi-parser.ts';
+import { decodeTrackName, parseMidiFiles, sanitizeFileName } from './midi-parser.ts';
 
 function midiToArrayBuffer(midi: Midi): ArrayBuffer {
   const bytes = midi.toArray();
@@ -22,6 +22,25 @@ describe('sanitizeFileName', () => {
     expect(sanitizeFileName('Ave Maria.mid')).toBe('Ave_Maria');
     expect(sanitizeFileName('gloria?.midi')).toBe('gloria_');
     expect(sanitizeFileName('日本語_テスト.mid')).toBe('日本語_テスト');
+  });
+});
+
+describe('decodeTrackName', () => {
+  it('recovers UTF-8 track names mis-decoded as Latin-1', () => {
+    // 「クラリネット in B♭」を UTF-8 でエンコードし、それを Latin-1 として読んだ
+    // mojibake 文字列を生成（midi-file の挙動を再現）
+    const original = 'クラリネット in B♭';
+    const utf8Bytes = new TextEncoder().encode(original);
+    const mojibake = String.fromCharCode(...utf8Bytes);
+
+    expect(mojibake).not.toBe(original);
+    expect(decodeTrackName(mojibake)).toBe(original);
+  });
+
+  it('leaves ASCII and already-correct names unchanged', () => {
+    expect(decodeTrackName('Soprano')).toBe('Soprano');
+    expect(decodeTrackName('ソプラノ')).toBe('ソプラノ');
+    expect(decodeTrackName('')).toBe('');
   });
 });
 
